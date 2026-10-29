@@ -1,5 +1,7 @@
 # GLiDE on Apple Silicon (MLX)
 
+**License:** [Fastino Community License](LICENSE) (GLiDE and this port; see [`NOTICE`](NOTICE)) · the Qwen3.8-27B base keeps its [Apache-2.0 license](licenses/Qwen3.8-27B-LICENSE). Commercial use requires "Built with Fastino GLiDE" (section 4); see [License](#license).
+
 An MLX port of [fastino/GLiDE](https://huggingface.co/fastino/GLiDE), Fastino's decision model built on Qwen3.8-27B. Give it a
 state (text, JSON or images) and typed questions (`choice`, `noul` for yes / no, `score`) and it returns a probability for every
 option, in one forward pass per question.
