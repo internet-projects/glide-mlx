@@ -66,6 +66,17 @@ def two_way():
         _two_way.on = False
 
 
+def set_memory_limits():
+    """Keep MLX from holding freed buffers: each prompt length allocates differently sized activations, and with MLX's
+    default cache limit (as large as the memory limit) those pile up into tens of GB over a benchmark run.
+    GLIDE_CACHE_LIMIT_GB [2] caps the buffer cache; GLIDE_MEMORY_LIMIT_GB (unset = MLX default) caps total MLX memory
+    (allocations above it wait for running work and then fail instead of pushing macOS into swap)."""
+    import mlx.core as mx
+    mx.set_cache_limit(int(float(os.environ.get("GLIDE_CACHE_LIMIT_GB", "2")) * 1e9))
+    if os.environ.get("GLIDE_MEMORY_LIMIT_GB"):
+        mx.set_memory_limit(int(float(os.environ["GLIDE_MEMORY_LIMIT_GB"]) * 1e9))
+
+
 def mrope_positions(ids, grids, image_token_id, merge):
     """[3, 1, T] rotary positions (t, h, w) for one unpadded sequence; same rule as upstream mrope_positions: text tokens
     advance all three axes together; an image's merged tokens get (start, start + row, start + col) and the following text
@@ -202,6 +213,7 @@ class GlideMLX:
         self.image_token_id = int(config.get("image_token_id", 248056))
         self._patch = (int(vc.get("patch_size", 16)), int(vc.get("temporal_patch_size", 2)), int(vc.get("spatial_merge_size", 2)))
         _install_two_way_patch()
+        set_memory_limits()
 
     @classmethod
     def from_pretrained(cls, path, vision=True, max_len=DEFAULT_MAX_LEN, name=DEFAULT_NAME, lazy=False):
@@ -245,6 +257,7 @@ class GlideMLX:
                 row = self.logits(x, vis, feats)
                 answers[qk] = _answer(qtype, keys, _softmax(row, len(keys), self.temperature))
             results.append({"model": self.name, "answers": answers, "usage": {"input_tokens": sum(len(x) for x in ids), "output_tokens": 0}})
+            self.mx.clear_cache()                # every prompt length allocates new buffer sizes: do not keep them
         return results
 
     # ------------------------------------------------------------------------------------------------------------- internals

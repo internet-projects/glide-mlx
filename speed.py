@@ -41,6 +41,7 @@ def main():
         state = g.tokenizer.decode(filler_ids[:n])
         ids = g.tokenizer(g.prompter.text(state, q, opts), add_special_tokens=False)["input_ids"]
         g.logits(ids)                                   # warm-up
+        mx.clear_cache()
         mx.reset_peak_memory()
         ts = []
         for _ in range(a.repeats):
@@ -50,6 +51,7 @@ def main():
         r = {"target": L, "tokens": len(ids), "p50_s": round(statistics.median(ts), 3), "min_s": round(min(ts), 3),
              "tok_per_s": round(len(ids) / statistics.median(ts)), "peak_gb": round(mx.get_peak_memory() / 1e9, 2)}
         out["runs"].append(r)
+        mx.clear_cache()
         print(json.dumps(r), flush=True)
     if a.json:
         json.dump(out, open(a.json, "w"), indent=1)
