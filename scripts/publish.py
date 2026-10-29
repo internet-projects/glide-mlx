@@ -5,8 +5,8 @@
     python scripts/publish.py --models ~/local-llms/glide --go       # do it
 
 Each step is skipped when already done, so a re-run resumes:
-  1. Hugging Face: create netprojects/GLiDE-mlx-8bit and -4bit (public) and upload each build with its card as one commit.
-  2. GitHub: create internet-projects/glide-mlx (public), push main, tag v0.1.0, create the release.
+  2. Hugging Face: create netprojects/GLiDE-mlx-8bit and -4bit (public) and upload each build with its card as one commit.
+  1. GitHub: create internet-projects/glide-mlx (public), push main, tag v0.1.0, create the release.
 """
 import argparse
 import fnmatch
@@ -18,7 +18,7 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(HERE)
 GH_REPO, TAG = "internet-projects/glide-mlx", "v0.1.0"
 BUILDS = [("netprojects/GLiDE-mlx-8bit", "mlx-q8", "hf_cards/q8.md"), ("netprojects/GLiDE-mlx-4bit", "mlx-q4", "hf_cards/q4.md")]
-SKIP = ["README.md", ".DS_Store", "._*", "*.pyc", "__pycache__/*"]
+SKIP = ["README.md", ".*", "*/.*", "*.pyc", "__pycache__/*", "*.incomplete", "*.lock", "*.log", "*.bak"]
 NEED = ["config.json", "model.safetensors.index.json", "readout.safetensors", "decision_config.json", "tokenizer.json",
         "chat_template.jinja", "LICENSE", "NOTICE", "licenses/Qwen3.8-27B-LICENSE"]
 COMMIT_MSG = "GLiDE v1.2 (fastino/GLiDE d199b6d) MLX {bits}: weights, card, Fastino Community License files"
@@ -35,6 +35,8 @@ def files_of(folder):
     out = []
     for root, _, names in os.walk(folder):
         for n in names:
+            if os.path.islink(os.path.join(root, n)):
+                sys.exit(f"symlink in {folder}: {n}")
             rel = os.path.relpath(os.path.join(root, n), folder)
             if not any(fnmatch.fnmatch(rel, p) or fnmatch.fnmatch(n, p) for p in SKIP):
                 out.append(rel)
@@ -68,6 +70,11 @@ def main():
         missing = [n for n in NEED if n not in fs]
         if missing or not any(f.endswith(".safetensors") and f.startswith("model-") for f in fs):
             sys.exit(f"{folder} is incomplete: missing {missing}")
+        for f in fs:
+            if f.endswith((".json", ".jinja", ".txt", ".md")) and os.path.getsize(os.path.join(folder, f)) < 5_000_000:
+                t = open(os.path.join(folder, f), errors="ignore").read()
+                if "/Users/" in t or "/home/" in t:
+                    sys.exit(f"local path in {folder}/{f}")
         size = sum(os.path.getsize(os.path.join(folder, f)) for f in fs) / 1e9
         exists = api.repo_exists(repo)
         done = exists and any(c.title.startswith(COMMIT_MSG.split(" MLX")[0]) for c in api.list_repo_commits(repo))
@@ -78,18 +85,6 @@ def main():
     if not a.go:
         print("dry run: nothing changed. Re-run with --go.")
         return
-
-    for repo, sub, card in BUILDS:
-        folder = os.path.join(a.models, sub)
-        api.create_repo(repo, private=False, exist_ok=True)
-        if any(c.title.startswith(COMMIT_MSG.split(" MLX")[0]) for c in api.list_repo_commits(repo)):
-            print(f"HF {repo}: already published")
-            continue
-        ops = [CommitOperationAdd(path_in_repo=f, path_or_fileobj=os.path.join(folder, f)) for f in files_of(folder)]
-        ops.append(CommitOperationAdd(path_in_repo="README.md", path_or_fileobj=card))
-        print(f"HF {repo}: uploading {len(ops)} files ...", flush=True)
-        oid = api.create_commit(repo, operations=ops, commit_message=COMMIT_MSG.format(bits="8-bit" if "8bit" in repo else "4-bit")).oid
-        print(f"HF {repo}: published {oid[:7]}")
 
     sh("git", "branch", "-M", "main")
     if not gh_exists:
@@ -107,6 +102,18 @@ def main():
            "4-bit: 197/204, 213/231. Weights: huggingface.co/netprojects/GLiDE-mlx-8bit and -4bit. "
            "Built with Fastino GLiDE; Fastino Community License. Not affiliated with Fastino.")
     print(f"GitHub: https://github.com/{GH_REPO} main + {TAG} + release")
+    for repo, sub, card in BUILDS:
+        folder = os.path.join(a.models, sub)
+        api.create_repo(repo, private=False, exist_ok=True)
+        if any(c.title.startswith(COMMIT_MSG.split(" MLX")[0]) for c in api.list_repo_commits(repo)):
+            print(f"HF {repo}: already published")
+            continue
+        ops = [CommitOperationAdd(path_in_repo=f, path_or_fileobj=os.path.join(folder, f)) for f in files_of(folder)]
+        ops.append(CommitOperationAdd(path_in_repo="README.md", path_or_fileobj=card))
+        print(f"HF {repo}: uploading {len(ops)} files ...", flush=True)
+        oid = api.create_commit(repo, operations=ops, commit_message=COMMIT_MSG.format(bits="8-bit" if "8bit" in repo else "4-bit")).oid
+        print(f"HF {repo}: published {oid[:7]}")
+
     print("done.")
 
 
