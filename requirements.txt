@@ -1,0 +1,13 @@
+# MLX port (Python 3.12)
+mlx==0.32.4
+mlx-vlm==0.7.11
+transformers==5.17.0
+tokenizers==0.23.2
+safetensors==0.8.0
+numpy
+pillow
+fastapi
+uvicorn
+# PyTorch reference for parity.py (Fastino's validated versions)
+torch==2.14.0
+jinja2==3.1.6

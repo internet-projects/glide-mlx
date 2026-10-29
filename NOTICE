@@ -1,0 +1,12 @@
+GLiDE
+Developed by Fastino Inc.
+https://fastino.ai
+https://huggingface.co/fastino/GLiDE
+
+GLiDE is a modified version of Qwen3.8-27B developed by Alibaba Cloud.
+Fastino modified the base model for decision modeling. Fastino contributions
+are subject to the Fastino Community License in LICENSE.
+
+Qwen3.8-27B: Copyright 2026 Alibaba Cloud.
+The original upstream license is preserved in licenses/Qwen3.8-27B-LICENSE.
+Qwen and other third-party components remain subject to their original licenses.
